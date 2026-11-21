@@ -1,0 +1,9 @@
+ColabTerm Android — third-party notices
+
+Termux terminal libraries
+ColabTerm uses terminal-view 0.118.3 and its terminal-emulator dependency from the Termux application repository (https://github.com/termux/termux-app/tree/v0.118.3), resolved through JitPack. The upstream v0.118.3 license statement identifies these two libraries under the Apache License 2.0 exception. This app uses those terminal libraries, not the full Termux application or termux-shared. See the upstream license statement at https://raw.githubusercontent.com/termux/termux-app/v0.118.3/LICENSE.md and library guide at https://github.com/termux/termux-app/wiki/Termux-Libraries.
+
+The complete Apache License 2.0 text is in licenses/Apache-2.0.txt.
+
+Google Colab CLI Android fork
+This app includes Python source from google-colab-cli-android version 0.7.2.post0+android5.3 (https://github.com/phiiggfdg/google-colab-cli-android), under Apache License 2.0. Its license text is in licenses/google-colab-cli-android-Apache-2.0.txt.

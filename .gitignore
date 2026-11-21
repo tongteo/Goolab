@@ -1,0 +1,35 @@
+# Android, Gradle, and machine-local build outputs
+.gradle/
+**/.gradle/
+build/
+**/build/
+local.properties
+**/local.properties
+*.apk
+*.aab
+
+# Rust build outputs
+native/target/
+**/target/
+
+# Python caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Generated native libraries
+app/src/main/jniLibs/**/*.so
+
+# Local OAuth credentials, auth state, and signing material
+**/oauth_config.json
+**/token.json
+**/credentials.json
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key

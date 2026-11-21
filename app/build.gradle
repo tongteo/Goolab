@@ -1,0 +1,114 @@
+plugins {
+    id 'com.android.application'
+    id 'com.chaquo.python'
+}
+def chaquopyPythonVersion = '3.13'
+def chaquopyBuildPython = findProperty('chaquopy.buildPython') ?: System.getenv('CHAQUOPY_BUILD_PYTHON') ?: "python${chaquopyPythonVersion}"
+
+android {
+    namespace 'dev.trung.colabterm'
+    compileSdk 35
+
+    sourceSets.main.jniLibs.srcDir "$buildDir/generated/colabCliJniLibs"
+
+    defaultConfig {
+        applicationId 'dev.trung.colabterm'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0'
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+}
+
+chaquopy {
+    defaultConfig {
+        version chaquopyPythonVersion
+        buildPython chaquopyBuildPython
+        pip {
+            install 'click>=8.0'
+            install 'bcrypt==3.2.2'
+            install 'cffi==1.17.1'
+            install 'cryptography==42.0.8'
+            install 'filelock>=3.29.2'
+            install 'google-auth>=2.47,<2.48'
+            install 'google-auth-oauthlib>=1.3.0'
+            install 'html2text>=2024.2.26'
+            install 'packaging>=24.0'
+            install 'paramiko==5.1.0'
+            install 'prompt-toolkit>=3.0.52'
+            install 'pygments>=2.19.2'
+            install 'PyNaCl==1.5.0'
+            install 'requests>=2.32.5'
+            install 'rich>=14.3.3'
+            install 'typer>=0.24.1'
+            install 'typing-extensions>=4.0'
+            install 'websocket-client>=1.0'
+        }
+    }
+}
+
+dependencies {
+    implementation 'com.github.termux.termux-app:terminal-view:0.118.3'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+def androidNdk = System.getenv('ANDROID_NDK_HOME') ?: System.getenv('ANDROID_NDK_ROOT') ?: '/home/ubuntu/android-sdk/ndk/24.0.8215888'
+def colabBridgeBinary = "$rootProject.projectDir/native/target/aarch64-linux-android/release/colab"
+def generatedColabJniLibs = "$buildDir/generated/colabCliJniLibs/arm64-v8a"
+
+tasks.register('buildRust', Exec) {
+    workingDir "$rootProject.projectDir/native"
+    environment 'ANDROID_NDK_HOME', androidNdk
+    commandLine 'cargo', 'ndk', '-t', 'arm64-v8a', '-o', "$projectDir/src/main/jniLibs", 'build', '--release'
+    inputs.files(fileTree("$rootProject.projectDir/native/src"))
+    inputs.file("$rootProject.projectDir/native/Cargo.toml")
+    outputs.file("$projectDir/src/main/jniLibs/arm64-v8a/libcolab_termux_core.so")
+    outputs.file(colabBridgeBinary)
+}
+
+tasks.register('stageColabHelper', Copy) {
+    dependsOn tasks.named('buildRust')
+    from colabBridgeBinary
+    into generatedColabJniLibs
+    rename { 'libcolab_cli.so' }
+}
+
+tasks.register('checkChaquopyBuildPython', Exec) {
+    group = 'verification'
+    description = 'Fails early unless Chaquopy buildPython matches the embedded Python version.'
+    commandLine chaquopyBuildPython, '-c',
+            "import sys; expected = tuple(map(int, '${chaquopyPythonVersion}'.split('.'))); actual = sys.version_info[:2]; " +
+                    "print(f'Chaquopy build Python: {sys.version.split()[0]}'); " +
+                    "sys.exit(0 if actual == expected else f'Expected Python ${chaquopyPythonVersion}, found {sys.version.split()[0]}')"
+}
+
+tasks.register('verifyDebugChaquopyApk', Exec) {
+    group = 'verification'
+    description = 'Checks the assembled debug APK contains Chaquopy requirements and SSH wheels.'
+    dependsOn 'packageDebug'
+    commandLine chaquopyBuildPython,
+            "$rootProject.projectDir/tests/python/verify_chaquopy_apk.py",
+            "$buildDir/outputs/apk/debug/app-debug.apk"
+}
+
+tasks.matching { it.name == 'assembleDebug' }.configureEach {
+    dependsOn tasks.named('verifyDebugChaquopyApk')
+}
+
+tasks.named('preBuild').configure {
+    dependsOn tasks.named('stageColabHelper')
+    dependsOn tasks.named('checkChaquopyBuildPython')
+}

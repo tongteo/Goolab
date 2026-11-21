@@ -1,0 +1,4 @@
+<resources>
+    <string name="terminal_font_size">%1$dsp</string>
+    <string name="terminal_font_size_content_description">Cỡ chữ terminal hiện tại: %1$d sp. Chạm để đặt lại về mặc định.</string>
+</resources>

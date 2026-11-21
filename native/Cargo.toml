@@ -1,0 +1,13 @@
+[package]
+name = "colab-termux-core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "colab_termux_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+libc = "0.2"
+jni = "0.21.1"
+shell-words = "1.1.0"
