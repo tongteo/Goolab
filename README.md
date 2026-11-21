@@ -1,14 +1,14 @@
-# ColabTerm Android
+# ColabTerm for Android
 
-ColabTerm là APK Android ARM64 có màn hình terminal dựa trên thư viện terminal mã nguồn mở của Termux. Ứng dụng chạy `/system/bin/sh` tương tác trong PTY, rồi cung cấp lệnh `colab` ngay tại prompt để gọi Google Colab CLI Python 3.13 được nhúng bằng Chaquopy. Parser/allowlist và executable cầu nối `colab` viết bằng Rust qua JNI/native binary.
+ColabTerm is an ARM64 Android APK with a terminal screen based on Termux's open-source terminal libraries. It runs an interactive `/system/bin/sh` in a PTY and provides the `colab` command at the prompt to run the Google Colab CLI embedded with Chaquopy and Python 3.13. The parser/allowlist and the `colab` bridge executable are written in Rust and use JNI/native code.
 
-Ứng dụng dùng `terminal-view` Termux `v0.118.3` (kèm thư viện `terminal-emulator` phụ thuộc) qua JitPack; không đóng gói toàn bộ ứng dụng Termux. Màn hình CLI cũ vẫn có thể mở bằng nút **Colab CLI** trong terminal.
+The app uses Termux `terminal-view` `v0.118.3` (with its `terminal-emulator` dependency) through JitPack; it does not bundle the full Termux app. The legacy CLI screen can still be opened with the **Colab CLI** button in the terminal.
 
-## Shell và lệnh Colab
+## Shell and Colab commands
 
-Màn hình khởi động mở `/system/bin/sh -i` qua PTY, với HOME/TMPDIR trong vùng dữ liệu riêng của app. PATH ưu tiên `files/bin` của app; lệnh `colab` tại đây là symlink tới helper Rust được Android cài trong `nativeLibraryDir`, để tránh chính sách Android mới chặn chạy executable từ thư mục dữ liệu app có thể ghi. PATH sau đó mới tới các lệnh hệ thống Android. Đây là shell thật của Android trong sandbox theo UID/SELinux của ứng dụng; không có root, không có `sudo`, và không phải một bản phân phối Linux đầy đủ.
+The startup screen opens `/system/bin/sh -i` through a PTY, with HOME/TMPDIR inside the app's private data area. The app's `files/bin` directory takes priority in PATH; its `colab` command is a symlink to the Rust helper installed by Android in `nativeLibraryDir`, avoiding newer Android policies that block executing binaries from writable app-data directories. Android system commands are added later in PATH. This is the real Android shell, sandboxed under the app's UID/SELinux context: there is no root, no `sudo`, and no complete Linux distribution.
 
-Ví dụ nhập ngay tại prompt:
+For example, enter these commands at the prompt:
 
 ```sh
 colab --help
@@ -16,73 +16,73 @@ colab version
 colab --auth oauth2 sessions
 ```
 
-Helper gửi các đối số argv tới bridge chỉ bind loopback, xác thực bằng token ngẫu nhiên, rồi bridge gọi runner Python/Colab CLI. Mã thoát và output quay về terminal; input được chuyển tiếp khi CLI cần nhập dữ liệu. Các lệnh được parser Rust kiểm tra theo allowlist hiện hữu.
+The helper sends argv to a loopback-only bridge and authenticates with a random token; the bridge then calls the Python/Colab CLI runner. Exit codes and output are returned to the terminal, and input is forwarded when the CLI requests it. Commands are checked against the existing Rust parser allowlist.
 
-## Kết nối Google Colab
+## Connect to Google Colab
 
-1. Mở ColabTerm, tại shell nhập `colab --help` để xem các lệnh hiện được hỗ trợ. Máy cần có kết nối Internet.
-2. Tạo phiên Colab mặc định (CPU):
+1. Open ColabTerm and enter `colab --help` in the shell to see the currently supported commands. An Internet connection is required.
+2. Create a default Colab session (CPU):
 
    ```sh
    colab --auth oauth2 new
    ```
 
-   Lần đầu, CLI in một URL Google. Mở URL bằng trình duyệt, đăng nhập và chấp thuận quyền truy cập; sao chép authorization code Google trả về, quay lại terminal, dán mã vào dấu nhắc rồi nhấn Enter. Token được lưu mã hóa bằng Android Keystore.
-3. Khi lệnh báo `Session READY`, xem phiên và tên phiên bằng:
+   The first time, the CLI prints a Google URL. Open it in a browser, sign in, and grant access. Copy the authorization code returned by Google, return to the terminal, paste the code at the prompt, and press Enter. The token is stored encrypted with Android Keystore.
+3. When the command reports `Session READY`, run these commands to see the session name and check its status:
 
    ```sh
    colab sessions
    colab status
    ```
 
-   Có thể dùng `colab exec -s <tên-phiên> -f <đường-dẫn-tệp.py>` để chạy tệp Python cục bộ trên phiên đó. Màn hình **Colab CLI** có nút **Chọn tệp** để chọn tệp từ điện thoại và tạo lệnh upload gợi ý; kiểm tra lệnh rồi bấm **Gửi**.
-4. Khi xong, dừng phiên từ xa để giải phóng tài nguyên:
+   You can run a local Python file on that session with `colab exec -s <session-name> -f <path-to-file.py>`. The **Colab CLI** screen has a **Choose file** button to select a file from your phone and create a suggested upload command; review the command, then tap **Send**.
+4. When finished, stop the remote session to release its resources:
 
    ```sh
-   colab stop -s <tên-phiên>
+   colab stop -s <session-name>
    ```
 
-Nếu chỉ muốn kiểm tra đăng nhập mà chưa tạo runtime, dùng `colab --auth oauth2 sessions`. Runtime có thể phụ thuộc quota/khả năng cấp phát của tài khoản Colab. Trong shell nhúng, `colab console -s <tên-phiên>` và `colab ssh -s <tên-phiên>` hỗ trợ chế độ tương tác với phiên đã lưu. Android SSH dùng Paramiko qua endpoint `/colab/ssh` và bật SSH keepalive mỗi 15 giây sau xác thực; điều này không ngăn rớt mạng hoặc runtime hết hạn. `--proxy-mode` và `--rm` bị chặn để không tạo hoặc dừng phiên. Lệnh `repl` vẫn chưa được hỗ trợ. Chưa kiểm thử kết nối Colab thật trên thiết bị Android.
+   To check authentication without creating a runtime, use `colab --auth oauth2 sessions`. Runtime availability may depend on your Colab account's quota and allocation capacity. In the embedded shell, `colab console -s <session-name>` and `colab ssh -s <session-name>` support interactive access to a saved session. Android SSH uses Paramiko through the `/colab/ssh` endpoint and enables SSH keepalive every 15 seconds after authentication; this does not prevent network disconnections or runtime expiration. `--proxy-mode` and `--rm` are blocked to prevent creating or stopping sessions. The `repl` command is not yet supported. A real Colab connection has not been tested on an Android device.
 
-## Giữ phiên terminal/SSH khi ra nền
+## Keep the terminal/SSH session active in the background
 
-Một foreground service sở hữu PTY, shell và bridge, nên Activity có thể ra nền hoặc task bị gỡ khỏi Recents mà không tự đóng phiên. Khi mở lại ColabTerm, giao diện gắn vào terminal session còn sống; notification có thể mở app hoặc **Dừng shell**. Có nút dừng tương ứng trong giao diện. Android 13 trở lên có thể yêu cầu quyền **Thông báo** để notification hiện trong khay; nếu không cấp, Android vẫn có thể liệt kê foreground service trong Task Manager.
+A foreground service owns the PTY, shell, and bridge, so the Activity can move to the background or its task can be removed from Recents without automatically closing the session. When ColabTerm is reopened, the UI attaches to the still-running terminal session; the notification can reopen the app or **Stop shell**. The UI also has a corresponding stop control. Android 13 and later may request **Notifications** permission for the notification to appear in the notification shade; if permission is denied, Android may still list the foreground service in Task Manager.
 
-Foreground service không bảo đảm sống qua force-stop, reboot, process/OS hoặc vendor kill, mất mạng hay hết hạn runtime. App không tự chạy lại `colab ssh`, không tự reconnect SSH sau khi process mất, và không tạo/dừng runtime Colab. Dừng shell trong app/notification chỉ dừng tiến trình cục bộ và bridge, không dừng runtime từ xa.
+A foreground service does not guarantee survival through force-stop, reboot, process/OS or vendor termination, network loss, or runtime expiration. The app does not rerun `colab ssh`, automatically reconnect SSH after a process exits, or create/stop a Colab runtime. Stopping the shell in the app or notification stops only the local process and bridge; it does not stop the remote runtime.
 
-## Giới hạn và an toàn
+## Limitations and safety
 
-Shell chỉ có những tiện ích Android hệ thống vốn có; không kèm `pkg`/`apt`, rootfs, root hay package repository kiểu Termux. `console`/`ssh` yêu cầu phiên Colab đã lưu; Android SSH không tự tạo hoặc dừng phiên và sẽ từ chối `--rm`/`--proxy-mode`. `repl` vẫn chưa được hỗ trợ. Một số lệnh Colab khác có thể tạo, sửa hoặc dừng tài nguyên từ xa; hãy kiểm tra lệnh trước khi gửi.
+The shell only includes Android system utilities; it does not include `pkg`/`apt`, a rootfs, root, or a Termux-style package repository. `console`/`ssh` require a saved Colab session; Android SSH does not create or stop sessions and rejects `--rm`/`--proxy-mode`. `repl` is not yet supported. Other Colab commands may create, modify, or stop remote resources, so review a command before sending it.
 
-OAuth token được mã hóa AES-GCM với khóa Android Keystore. App không tự đăng nhập, tạo phiên Colab hay kiểm tra cập nhật khi mở. Shell hiện tại được giữ bởi foreground service khi Activity không hiển thị, nhưng Android vẫn có thể kết thúc service hoặc mất kết nối theo các giới hạn ở trên.
+The OAuth token is encrypted with AES-GCM using an Android Keystore key. The app does not automatically sign in, create a Colab session, or check for updates at launch. The foreground service keeps the current shell alive while the Activity is not visible, but Android may still terminate the service or the connection may be lost under the limitations above.
 
-## Build APK debug
+## Build a debug APK
 
-Cần JDK 17 trở lên, Android SDK Platform 35, Android NDK, Rust target `aarch64-linux-android`, `cargo-ndk` và Python 3.13 trên máy build (major/minor phải khớp Python nhúng của Chaquopy). Cập nhật đường dẫn tùy môi trường rồi chạy:
+The build machine needs JDK 17 or later, Android SDK Platform 35, Android NDK, the Rust target `aarch64-linux-android`, `cargo-ndk`, and Python 3.13 (the major/minor version must match Chaquopy's embedded Python). Adjust the paths for your environment, then run:
 
 ```bash
 export ANDROID_HOME="$HOME/Android/Sdk"
 export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/24.0.8215888"
 export PATH="$HOME/.cargo/bin:$PATH"
-# Nếu Python 3.13 không có tên python3.13 trong PATH, chỉ định executable:
+# If Python 3.13 is not available as python3.13 on PATH, set the executable explicitly:
 # export CHAQUOPY_BUILD_PYTHON="$(uv python find 3.13)"
 ./gradlew clean :app:testDebugUnitTest :app:assembleDebug
 ```
 
-Gradle kiểm tra Python 3.13 trước khi build, biên dịch Rust JNI và helper `colab`, rồi lắp APK `app/build/outputs/apk/debug/app-debug.apk`. `assembleDebug` tự xác minh APK có Chaquopy requirements, các wheel SSH đã pin và native extensions ARM64; thiếu Python hoặc asset sẽ làm build thất bại thay vì tạo APK không chạy được. Bản hiện tại chỉ hỗ trợ ABI `arm64-v8a`.
+Gradle checks for Python 3.13, builds the Rust JNI library and `colab` helper, and assembles `app/build/outputs/apk/debug/app-debug.apk`. `assembleDebug` also verifies that the APK contains Chaquopy requirements, the pinned SSH wheels, and ARM64 native extensions. A missing Python interpreter or asset causes the build to fail instead of producing a nonfunctional APK. The current build supports only the `arm64-v8a` ABI.
 
-## Kiểm thử và trạng thái
+## Tests and status
 
-Các kiểm thử Rust bao gồm parser/allowlist và protocol framing. Gradle unit tests kiểm tra bridge byte/resize/EOF; Python unit tests dùng mock để kiểm tra stdin, console resize/UTF-8, WebSocket adapter và an toàn phiên Android. `verifyDebugChaquopyApk` kiểm tra cấu trúc APK, Python 3.13, metadata của Paramiko/cryptography/bcrypt/PyNaCl/cffi và native extensions ARM64.
+Rust tests cover the parser/allowlist and protocol framing. Gradle unit tests cover bridge bytes, resize, and EOF; Python unit tests use mocks to test stdin, console resize/UTF-8, the WebSocket adapter, and Android session safety. `verifyDebugChaquopyApk` checks the APK structure, Python 3.13, Paramiko/cryptography/bcrypt/PyNaCl/cffi metadata, and ARM64 native extensions.
 
-Build và unit tests không chứng minh PTY, thực thi helper qua symlink tới `nativeLibraryDir`, OAuth hay lệnh Colab hoạt động trên thiết bị Android thật. Môi trường build chưa có thiết bị Android kết nối qua ADB; cần kiểm tra runtime trên điện thoại trước khi xem đây là bản đã kiểm thử thực tế.
+Builds and unit tests do not prove that the PTY, execution of the helper through a symlink to `nativeLibraryDir`, OAuth, or Colab commands work on a real Android device. No Android device is connected to the build environment through ADB; test the runtime on a phone before treating this as a device-verified build.
 
-## Chẩn đoán crash trên điện thoại
+## Diagnose a crash on a phone
 
-APK ghi các mốc khởi động và bắt Java exception chưa được xử lý vào vùng lưu trữ riêng của app. Nếu app crash, lần mở tiếp theo sẽ vào màn hình **Chẩn đoán** thay vì khởi chạy lại shell; Trung có thể xem trước rồi bấm **Chia sẻ báo cáo debug**. Báo cáo gồm phiên bản app, thông tin thiết bị, mốc khởi động và stack trace. Trên Android 11 trở lên, app còn thử đọc lý do thoát gần nhất và system trace do Android cung cấp cho native crash/ANR. Trên Android cũ hơn, không thể lấy tombstone hệ thống qua API này.
+The APK records startup milestones and captures unhandled Java exceptions in the app's private storage. After a crash, the next launch opens the **Diagnostics** screen instead of starting the shell again; Trung can review the report and tap **Share debug report**. The report includes the app version, device information, startup milestones, and stack trace. On Android 11 and later, the app also attempts to read the most recent exit reason and system trace provided by Android for native crashes/ANRs. On older Android versions, this API cannot retrieve the system tombstone.
 
-App không chủ động thu OAuth token, nội dung terminal/tệp hoặc logcat. System trace và thông báo exception có thể chứa đường dẫn hay dữ liệu hệ thống; hãy đọc báo cáo trước khi chia sẻ. Báo cáo chỉ nằm trong dữ liệu riêng của app cho đến khi được chia sẻ hoặc người dùng chọn **Xóa báo cáo và thoát**; sau đó mở lại app để thử khởi động bình thường. Native crash không có exit trace, force-stop, mất điện hoặc lỗi xảy ra trước khi Java handler được cài có thể không tạo báo cáo. Tính năng này không thay thế bug report/ADB khi cần log hệ thống đầy đủ.
+The app does not actively collect OAuth tokens, terminal/file contents, or logcat. System traces and exception messages may contain paths or system data; review the report before sharing it. The report remains in the app's private data until it is shared or the user chooses **Clear report and exit**. Then reopen the app to try a normal startup. A native crash without an exit trace, force-stop, power loss, or an error before the Java handler is installed may not produce a report. This feature does not replace a bug report/ADB when full system logs are needed.
 
-## Mã nguồn và license
+## Source and licenses
 
-Mã Python Colab CLI được lấy từ fork Android [google-colab-cli-android](https://github.com/phiiggfdg/google-colab-cli-android), phiên bản `0.7.2.post0+android5.3`, theo Apache-2.0. Thông báo bên thứ ba, nguồn Termux và bản sao license được ghi tại [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) và được đóng gói trong APK assets. Nguồn tham khảo thiết kế: [`docs/superpowers/specs/2026-11-21--termux-shell-ui-design.md`](docs/superpowers/specs/2026-11-21--termux-shell-ui-design.md).
+The Python Colab CLI code comes from the Android fork [google-colab-cli-android](https://github.com/phiiggfdg/google-colab-cli-android), version `0.7.2.post0+android5.3`, under Apache-2.0. Third-party notices, Termux sources, and license copies are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and bundled in the APK assets. Design references: [`docs/superpowers/specs/2026-11-21--termux-shell-ui-design.md`](docs/superpowers/specs/2026-11-21--termux-shell-ui-design.md).

@@ -81,7 +81,7 @@ public final class TermuxShellActivity extends Activity {
             if (shellService != null) shellService.clearUiClient(sessionClient);
             shellService = null;
             terminalSession = null;
-            showStatus("Terminal service đã ngắt kết nối; có thể thử mở lại app.");
+            showStatus("Terminal service disconnected; try reopening the app.");
             restartButton.setVisibility(View.VISIBLE);
             stopShellButton.setVisibility(View.GONE);
         }
@@ -112,14 +112,14 @@ public final class TermuxShellActivity extends Activity {
         root.setPadding(dp(16), dp(16), dp(16), dp(16));
 
         TextView title = new TextView(this);
-        title.setText("ColabTerm · Chẩn đoán");
+        title.setText("ColabTerm · Diagnostics");
         title.setTextColor(COLOR_ACCENT);
         title.setTextSize(21);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         root.addView(title);
 
         TextView explanation = new TextView(this);
-        explanation.setText("Phát hiện lần mở trước bị dừng bất thường. Báo cáo gồm phiên bản app, thông tin thiết bị, mốc khởi động và stack trace. App không chủ động thu OAuth token, nội dung terminal/tệp hay logcat; system trace có thể chứa dữ liệu hệ thống hoặc đường dẫn. Hãy xem trước khi chia sẻ.");
+        explanation.setText("An unexpected shutdown was detected during the previous launch. The report includes the app version, device information, startup milestones, and stack trace. The app does not actively collect OAuth tokens, terminal/file contents, or logcat; the system trace may contain system data or paths. Review it before sharing.");
         explanation.setTextColor(COLOR_TEXT);
         explanation.setTextSize(14);
         explanation.setPadding(0, dp(12), 0, dp(10));
@@ -138,14 +138,14 @@ public final class TermuxShellActivity extends Activity {
         root.addView(reportScroll, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1.0f));
 
-        Button shareButton = makeButton("Chia sẻ báo cáo debug");
+        Button shareButton = makeButton("Share debug report");
         shareButton.setOnClickListener(view -> shareCrashReport(report));
         LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
         buttonParams.topMargin = dp(10);
         root.addView(shareButton, buttonParams);
 
-        Button retryButton = makeButton("Xóa báo cáo và thoát");
+        Button retryButton = makeButton("Clear report and exit");
         retryButton.setOnClickListener(view -> clearReportAndExit());
         LinearLayout.LayoutParams retryParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
@@ -153,7 +153,7 @@ public final class TermuxShellActivity extends Activity {
         root.addView(retryButton, retryParams);
 
         TextView retryHint = new TextView(this);
-        retryHint.setText("Sau khi thoát, mở lại ColabTerm để thử khởi động bình thường.");
+        retryHint.setText("After exiting, reopen ColabTerm to try a normal startup.");
         retryHint.setTextColor(COLOR_MUTED);
         retryHint.setTextSize(12);
         retryHint.setPadding(0, dp(6), 0, 0);
@@ -169,15 +169,15 @@ public final class TermuxShellActivity extends Activity {
         shareIntent.putExtra(Intent.EXTRA_SUBJECT, "ColabTerm debug report");
         shareIntent.putExtra(Intent.EXTRA_TEXT, report);
         try {
-            startActivity(Intent.createChooser(shareIntent, "Chia sẻ báo cáo chẩn đoán"));
+            startActivity(Intent.createChooser(shareIntent, "Share diagnostic report"));
         } catch (android.content.ActivityNotFoundException error) {
-            Toast.makeText(this, "Không tìm thấy ứng dụng để chia sẻ báo cáo.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "No app found to share the report.", Toast.LENGTH_LONG).show();
         }
     }
 
     private void clearReportAndExit() {
         if (!AppDiagnostics.clearCrashReport(this)) {
-            Toast.makeText(this, "Không thể xóa báo cáo; báo cáo vẫn được giữ lại.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Unable to clear the report; it has been retained.", Toast.LENGTH_LONG).show();
             return;
         }
         finishAndRemoveTask();
@@ -207,7 +207,7 @@ public final class TermuxShellActivity extends Activity {
         root.addView(terminalView, terminalParams);
 
         status = new TextView(this);
-        showStatus("Đang mở terminal…");
+        showStatus("Opening terminal…");
         status.setTextColor(COLOR_MUTED);
         status.setTextSize(10);
         status.setSingleLine(true);
@@ -221,7 +221,7 @@ public final class TermuxShellActivity extends Activity {
         keys.setGravity(Gravity.CENTER_VERTICAL);
         keys.setOrientation(LinearLayout.HORIZONTAL);
 
-        Button keyboardButton = makeButton("Bàn phím");
+        Button keyboardButton = makeButton("Keyboard");
         keyboardButton.setOnClickListener(view -> showTerminalKeyboard());
         keys.addView(keyboardButton, keyParams());
 
@@ -254,21 +254,21 @@ public final class TermuxShellActivity extends Activity {
         addFontSizeButton(keys, "A+", 1);
 
         Button colabButton = makeButton("CLI");
-        colabButton.setContentDescription("Mở màn hình Colab CLI");
+        colabButton.setContentDescription("Open the Colab CLI screen");
         colabButton.setOnClickListener(view -> startActivity(
                 new Intent(TermuxShellActivity.this, MainActivity.class)));
         keys.addView(colabButton, keyParams());
-        restartButton = makeButton("Shell mới");
+        restartButton = makeButton("New shell");
         restartButton.setVisibility(View.GONE);
         restartButton.setOnClickListener(view -> startShell());
         keys.addView(restartButton, keyParams());
-        stopShellButton = makeButton("Dừng");
+        stopShellButton = makeButton("Stop");
         stopShellButton.setVisibility(View.GONE);
         stopShellButton.setOnClickListener(view -> stopShell());
         keys.addView(stopShellButton, keyParams());
 
-        notificationButton = makeButton("Thông báo");
-        notificationButton.setContentDescription("Cấp quyền hiển thị thông báo terminal");
+        notificationButton = makeButton("Notifications");
+        notificationButton.setContentDescription("Grant permission to show terminal notifications");
         notificationButton.setOnClickListener(view -> requestNotificationPermission());
         keys.addView(notificationButton, keyParams());
         keyScroll.addView(keys);
@@ -300,7 +300,7 @@ public final class TermuxShellActivity extends Activity {
 
     private void addFontSizeButton(LinearLayout row, String label, int changeSp) {
         Button button = makeButton(label);
-        button.setContentDescription(changeSp < 0 ? "Giảm cỡ chữ terminal" : "Tăng cỡ chữ terminal");
+        button.setContentDescription(changeSp < 0 ? "Decrease terminal font size" : "Increase terminal font size");
         button.setOnClickListener(view -> setTerminalFontSize(
                 TerminalFontSize.adjust(fontSizeSp, changeSp)));
         row.addView(button, keyParams());
@@ -315,7 +315,7 @@ public final class TermuxShellActivity extends Activity {
             if (!serviceBound) {
                 serviceBound = bindService(intent, shellServiceConnection, Context.BIND_AUTO_CREATE);
                 if (!serviceBound) {
-                    showStatus("Không kết nối được terminal service.");
+                    showStatus("Could not connect to the terminal service.");
                     restartButton.setVisibility(View.VISIBLE);
                 }
             }
@@ -323,7 +323,7 @@ public final class TermuxShellActivity extends Activity {
             String message = error.getMessage() == null
                     ? error.getClass().getSimpleName()
                     : error.getMessage();
-            showStatus("Không khởi chạy được terminal service: " + message);
+            showStatus("Could not start the terminal service: " + message);
             restartButton.setVisibility(View.VISIBLE);
         }
     }
@@ -348,10 +348,10 @@ public final class TermuxShellActivity extends Activity {
             terminalSession = null;
             String startupError = shellService.getStartupError();
             if (startupError != null) {
-                showStatus("Không khởi chạy được shell: " + startupError);
+                showStatus("Could not start the shell: " + startupError);
                 restartButton.setVisibility(View.VISIBLE);
             } else {
-                showStatus("Đang khởi chạy shell…");
+                showStatus("Starting shell…");
                 restartButton.setVisibility(View.GONE);
             }
             stopShellButton.setVisibility(View.GONE);
@@ -371,7 +371,7 @@ public final class TermuxShellActivity extends Activity {
             restartButton.setVisibility(View.GONE);
             stopShellButton.setVisibility(View.VISIBLE);
         } else {
-            showStatus("Shell đã kết thúc · mã " + session.getExitStatus());
+            showStatus("Shell exited · code " + session.getExitStatus());
             restartButton.setVisibility(View.VISIBLE);
             stopShellButton.setVisibility(View.GONE);
         }
@@ -383,7 +383,7 @@ public final class TermuxShellActivity extends Activity {
     }
 
     private void startShell() {
-        showStatus("Đang khởi chạy shell…");
+        showStatus("Starting shell…");
         restartButton.setVisibility(View.GONE);
         startAndBindShellService();
         if (shellService != null) {
@@ -396,7 +396,7 @@ public final class TermuxShellActivity extends Activity {
         if (shellService == null) return;
         boolean wasRunning = shellService.isSessionRunning();
         shellService.stopShell();
-        showStatus("Đang dừng shell/SSH…");
+        showStatus("Stopping shell/SSH…");
         stopShellButton.setVisibility(View.GONE);
         restartButton.setVisibility(wasRunning ? View.GONE : View.VISIBLE);
     }
@@ -446,10 +446,10 @@ public final class TermuxShellActivity extends Activity {
         if (requestCode != REQUEST_POST_NOTIFICATIONS) return;
         updateNotificationButtonVisibility();
         if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "Đã bật thông báo trạng thái terminal.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Terminal status notifications enabled.", Toast.LENGTH_SHORT).show();
         } else {
             Toast.makeText(this,
-                    "Terminal vẫn chạy; Android có thể chỉ hiện service trong Task Manager.",
+                    "The terminal is still running; Android may show only the service in Task Manager.",
                     Toast.LENGTH_LONG).show();
         }
     }
@@ -685,7 +685,7 @@ public final class TermuxShellActivity extends Activity {
             if (finishedSession != terminalSession) return;
             if (!destroyed) {
                 runOnUiThread(() -> {
-                    showStatus("Shell đã kết thúc · mã " + finishedSession.getExitStatus());
+                    showStatus("Shell exited · code " + finishedSession.getExitStatus());
                     restartButton.setVisibility(View.VISIBLE);
                     stopShellButton.setVisibility(View.GONE);
                 });

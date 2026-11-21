@@ -1,30 +1,30 @@
-# Thiết kế: Giữ terminal/SSH khi ColabTerm ra nền
+# Design: Keep the Terminal/SSH Session Alive in the Background
 
-## Mục tiêu
+## Goal
 
-Giữ phiên shell PTY và kết nối SSH hiện có trong khi Activity bị đưa ra nền hoặc task bị gỡ khỏi Recents; khi mở ColabTerm lại, gắn giao diện vào đúng terminal session đang sống, không bắt người dùng chạy lại `colab ssh` chỉ vì Activity đóng.
+Keep the existing PTY shell session and SSH connection while the Activity moves to the background or its task is removed from Recents. When ColabTerm is reopened, reattach the UI to the same live terminal session; do not make the user rerun `colab ssh` just because the Activity closed.
 
-## Quyết định kiến trúc
+## Architecture decisions
 
-- Chuyển ownership của `TerminalSession` và `ColabBridgeServer` từ `TermuxShellActivity` sang một `ShellTerminalService` dùng chung tiến trình.
-- Activity khởi chạy service từ màn hình đang hiển thị, bind để lấy `TerminalSession`, gắn `TerminalView` và đăng ký listener tạm thời. Activity detach listener khi rời; không kết thúc shell hoặc đóng bridge trong `onDestroy()`.
-- Service chạy foreground với một notification thường trực, yên lặng, nêu rõ terminal/SSH đang hoạt động; notification có hành động mở app và dừng shell. Có thao tác dừng tương ứng trong UI để người dùng luôn có lối thoát. Android 13+ cần runtime permission `POST_NOTIFICATIONS` để notification FGS hiện trong notification drawer; nếu bị từ chối, Android vẫn hiện service trong Task Manager. Nguồn: [Notification runtime permission](https://developer.android.com/develop/ui/views/notifications/notification-permission).
-- Khai báo `specialUse` với mô tả “interactive terminal/SSH session to a user-selected Colab runtime”. Đây là tác vụ tương tác liên tục không được mô tả phù hợp bởi `dataSync` (giới hạn thời gian mới trên Android) hay `connectedDevice`. Android yêu cầu khai báo type/permission từ API 34; Google Play yêu cầu mô tả/duyệt use case `specialUse` khi gửi app. Nguồn: [Foreground service types](https://developer.android.com/develop/background-work/services/fgs/service-types).
-- Không dùng `START_STICKY` để tự tạo một shell rỗng sau khi tiến trình bị giết; service chỉ duy trì object PTY đang sống. Không lưu token/command SSH để tự kết nối lại sau khi service/process bị mất.
-- `onTaskRemoved` không dừng service; hành động **Dừng shell** trong notification/UI đóng PTY và bridge, rồi dừng foreground service.
+- Move ownership of `TerminalSession` and `ColabBridgeServer` from `TermuxShellActivity` to a process-wide `ShellTerminalService`.
+- The Activity starts the service while visible, binds to obtain `TerminalSession`, attaches `TerminalView`, and registers a temporary listener. The Activity detaches its listener when leaving; it does not terminate the shell or close the bridge in `onDestroy()`.
+- The service runs in the foreground with a persistent, quiet notification that clearly states the terminal/SSH is active; the notification has actions to open the app and stop the shell. The UI also has a stop control so the user always has an exit path. Android 13+ requires runtime permission `POST_NOTIFICATIONS` for the FGS notification to appear in the notification drawer; if permission is denied, Android still shows the service in Task Manager. Source: [Notification runtime permission](https://developer.android.com/develop/ui/views/notifications/notification-permission).
+- Declare `specialUse` with the description “interactive terminal/SSH session to a user-selected Colab runtime”. This is a continuous interactive task not appropriately described by `dataSync` (which has new time limits on Android) or `connectedDevice`. Android requires the type/permission from API 34; Google Play requires a description/review of the `specialUse` use case when submitting the app. Source: [Foreground service types](https://developer.android.com/develop/background-work/services/fgs/service-types).
+- Do not use `START_STICKY` to create an empty shell after the process is killed; the service only retains the live PTY object. Do not save SSH tokens/commands to reconnect automatically after the service/process is lost.
+- `onTaskRemoved` does not stop the service; the **Stop shell** action in the notification/UI closes the PTY and bridge, then stops the foreground service.
 
-## Ngoài phạm vi và giới hạn
+## Out of scope and limitations
 
-- Không bảo đảm duy trì kết nối sau force-stop, reboot, Android/vendor kill, mất mạng, hết hạn phiên Colab hoặc khi người dùng dừng service từ hệ thống.
-- Không tự chạy lại `colab ssh`, không tự tạo/dừng runtime, không thay đổi allowlist, OAuth, token bridge, UID/quyền shell hoặc giao thức remote.
-- Không thêm keep-alive cho assignment Colab: SSH keepalive 15 giây xử lý idle timeout của đường SSH/WebSocket; hai cơ chế không đồng nghĩa.
-- Không thay renderer Termux, input path, cỡ chữ hay cuộn khi chưa có đo đạc trên thiết bị.
-- Không tuyên bố background/SSH đã kiểm thử thực tế nếu chưa chạy trên điện thoại. Không kết nối `t4-lab` trong lúc phát triển.
+- Do not guarantee connection persistence after force-stop, reboot, Android/vendor termination, network loss, Colab session expiration, or the user stopping the service from the system.
+- Do not rerun `colab ssh`, automatically create/stop a runtime, or change the allowlist, OAuth, token bridge, UID/shell permissions, or remote protocol.
+- Do not add a keep-alive for the Colab assignment: a 15-second SSH keepalive addresses idle timeouts on the SSH/WebSocket connection; the two mechanisms are not equivalent.
+- Do not change the Termux renderer, input path, font size, or scrolling before collecting device measurements.
+- Do not claim background/SSH has been tested in practice without running it on a phone. Do not connect to `t4-lab` during development.
 
-## Kiểm thử và nghiệm thu
+## Testing and acceptance
 
-1. Unit test thuần kiểm tra chính sách khởi tạo/dừng service và trạng thái notification/action ở mức có thể kiểm thử mà không Android device.
-2. Python regression test xác nhận Paramiko bật keepalive 15 giây sau khi xác thực.
-3. Gradle unit tests, build debug APK, kiểm tra merged manifest có `specialUse`/permission đúng và service không exported.
-4. Không gửi lệnh Colab thật, không tạo/dừng runtime; kiểm thử nền thực tế còn chờ người dùng trên thiết bị: mở SSH hiện có, đưa app ra nền/đóng task, mở lại kiểm tra cùng prompt, rồi thử **Dừng shell**.
-5. Báo rõ giới hạn test không có Android device/không có session Colab thực.
+1. Pure unit tests check service startup/stop policy and notification/action state to the extent testable without an Android device.
+2. Python regression test confirms Paramiko enables a 15-second keepalive after authentication.
+3. Gradle unit tests, debug APK build, and merged-manifest checks verify the correct `specialUse`/permission and that the service is not exported.
+4. Do not send real Colab commands or create/stop a runtime. Real background testing is still pending on the user's device: open an existing SSH session, background the app/remove its task, reopen it and check for the same prompt, then try **Stop shell**.
+5. Clearly report the lack of an Android device/real Colab session for testing.

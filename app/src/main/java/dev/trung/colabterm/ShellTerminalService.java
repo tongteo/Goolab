@@ -145,14 +145,14 @@ public final class ShellTerminalService extends Service implements TerminalSessi
             File home = getFilesDir();
             File temp = new File(getCacheDir(), "shell-tmp");
             if (!temp.exists() && !temp.mkdirs()) {
-                throw new IllegalStateException("Không tạo được thư mục tạm riêng của app.");
+                throw new IllegalStateException("Could not create the app’s private temporary directory.");
             }
             installShellStartupConfig(new File(
                     ShellConfig.startupFilePath(temp.getAbsolutePath())));
 
             File binaryDirectory = new File(home, "bin");
             if (!binaryDirectory.exists() && !binaryDirectory.mkdirs()) {
-                throw new IllegalStateException("Không tạo được thư mục lệnh riêng của app.");
+                throw new IllegalStateException("Could not create the app’s private command directory.");
             }
             installColabHelper(new File(binaryDirectory, "colab"));
 
@@ -220,9 +220,9 @@ public final class ShellTerminalService extends Service implements TerminalSessi
         if (manager == null) return;
         NotificationChannel channel = new NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                "Terminal đang chạy",
+                "Terminal running",
                 NotificationManager.IMPORTANCE_LOW);
-        channel.setDescription("Trạng thái terminal/SSH ColabTerm khi ứng dụng ở nền.");
+        channel.setDescription("ColabTerm terminal/SSH status while the app is in the background.");
         channel.setShowBadge(false);
         channel.enableVibration(false);
         channel.setSound(null, null);
@@ -248,14 +248,14 @@ public final class ShellTerminalService extends Service implements TerminalSessi
                 : new Notification.Builder(this).setPriority(Notification.PRIORITY_LOW);
         return builder
                 .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
-                .setContentTitle("ColabTerm · Terminal đang hoạt động")
-                .setContentText("Shell/SSH tiếp tục khi ứng dụng ở nền")
+                .setContentTitle("ColabTerm · Terminal active")
+                .setContentText("Shell/SSH continues while the app is in the background")
                 .setContentIntent(openApp)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setShowWhen(false)
-                .addAction(android.R.drawable.ic_media_pause, "Dừng shell", stopShell)
+                .addAction(android.R.drawable.ic_media_pause, "Stop shell", stopShell)
                 .build();
     }
 
@@ -270,23 +270,23 @@ public final class ShellTerminalService extends Service implements TerminalSessi
         File nativeHelper = new File(ShellConfig.colabHelperPath(
                 getApplicationInfo().nativeLibraryDir));
         if (!nativeHelper.isFile() || !nativeHelper.canExecute()) {
-            throw new IOException("Không tìm thấy helper colab executable trong nativeLibraryDir.");
+            throw new IOException("Executable colab helper not found in nativeLibraryDir.");
         }
 
         try {
             Os.remove(target.getAbsolutePath());
         } catch (ErrnoException error) {
             if (error.errno != OsConstants.ENOENT) {
-                throw new IOException("Không thể thay helper colab cũ.", error);
+                throw new IOException("Could not replace the existing colab helper.", error);
             }
         }
         try {
             Os.symlink(nativeHelper.getAbsolutePath(), target.getAbsolutePath());
         } catch (ErrnoException error) {
-            throw new IOException("Không thể liên kết helper colab trong thư mục lệnh.", error);
+            throw new IOException("Could not link the colab helper in the command directory.", error);
         }
         if (!target.canExecute()) {
-            throw new IOException("Helper colab không có quyền thực thi sau khi cài.");
+            throw new IOException("The colab helper is not executable after installation.");
         }
     }
 

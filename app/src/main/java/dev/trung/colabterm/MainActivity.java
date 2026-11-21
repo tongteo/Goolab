@@ -79,9 +79,9 @@ public final class MainActivity extends Activity {
         AndroidTokenStore.initialize(this);
         buildUi();
         AppDiagnostics.mark(this, "Colab CLI interface built");
-        appendTerminalText("ColabTerm 0.1.0 — terminal cho Google Colab CLI\n");
-        appendTerminalText("Chỉ nhận lệnh `colab`; không phải shell Linux tổng quát.\n");
-        appendTerminalText("Thử: colab --help | colab version | colab --auth oauth2 sessions\n\n");
+        appendTerminalText("ColabTerm 0.1.0 — terminal for Google Colab CLI\n");
+        appendTerminalText("Only `colab` commands are accepted; this is not a general-purpose Linux shell.\n");
+        appendTerminalText("Try: colab --help | colab version | colab --auth oauth2 sessions\n\n");
     }
 
     private void buildUi() {
@@ -131,7 +131,7 @@ public final class MainActivity extends Activity {
         addShortcut(shortcuts, "help", "colab --help");
         addShortcut(shortcuts, "version", "colab version");
         addShortcut(shortcuts, "sessions", "colab --auth oauth2 sessions");
-        addShortcut(shortcuts, "Chọn tệp", null);
+        addShortcut(shortcuts, "Choose file", null);
         shortcutsScroll.addView(shortcuts);
         root.addView(shortcutsScroll, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -144,7 +144,7 @@ public final class MainActivity extends Activity {
         commandField.setSingleLine(true);
         commandField.setTextColor(COLOR_TEXT);
         commandField.setHintTextColor(COLOR_MUTED);
-        commandField.setHint("colab <lệnh>");
+        commandField.setHint("colab <command>");
         commandField.setTextSize(14);
         commandField.setTypeface(Typeface.MONOSPACE);
         commandField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
@@ -163,7 +163,7 @@ public final class MainActivity extends Activity {
         inputRow.addView(commandField, new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
         sendButton = new Button(this);
-        sendButton.setText("Gửi");
+        sendButton.setText("Send");
         sendButton.setTextColor(COLOR_BG);
         sendButton.setAllCaps(false);
         sendButton.setBackgroundTintList(android.content.res.ColorStateList.valueOf(COLOR_ACCENT));
@@ -195,7 +195,7 @@ public final class MainActivity extends Activity {
         } else {
             button.setOnClickListener(view -> {
                 if (commandRunning) {
-                    appendTerminalText("\n[ColabTerm] Đang chạy lệnh khác.\n");
+                    appendTerminalText("\n[ColabTerm] Another command is running.\n");
                     return;
                 }
                 executeCommand(command);
@@ -217,7 +217,7 @@ public final class MainActivity extends Activity {
             return;
         }
         if (commandRunning) {
-            appendTerminalText("\n[ColabTerm] Lệnh đang chạy; chờ CLI yêu cầu dữ liệu hoặc hoàn tất.\n");
+            appendTerminalText("\n[ColabTerm] A command is running; wait for the CLI to request input or finish.\n");
             return;
         }
         if (value.trim().isEmpty()) return;
@@ -231,11 +231,11 @@ public final class MainActivity extends Activity {
         try {
             normalized = nativeNormalizeCommand(line);
         } catch (Throwable error) {
-            appendTerminalText("\n[ColabTerm] Không thể phân tích lệnh Rust: " + error.getMessage() + "\n");
+            appendTerminalText("\n[ColabTerm] Unable to parse the Rust command: " + error.getMessage() + "\n");
             return;
         }
         if (normalized == null) {
-            appendTerminalText("\n[ColabTerm] Parser Rust không trả kết quả.\n");
+            appendTerminalText("\n[ColabTerm] The Rust parser returned no result.\n");
             return;
         }
         if (normalized.startsWith("!")) {
@@ -246,7 +246,7 @@ public final class MainActivity extends Activity {
         final String argsText = normalized;
         appendTerminalText("$ " + line + "\n");
         commandRunning = true;
-        setBusyUi(true, "Đang chạy Colab CLI…");
+        setBusyUi(true, "Running Colab CLI…");
         commandExecutor.execute(() -> {
             try {
                 synchronized (PYTHON_RUN_LOCK) {
@@ -263,7 +263,7 @@ public final class MainActivity extends Activity {
                 appendTerminalText("\n[ColabTerm] " + message + "\n");
             } finally {
                 commandRunning = false;
-                setBusyUi(false, "Sẵn sàng · lệnh chỉ chạy khi bạn gửi");
+                setBusyUi(false, "Ready · commands run only when you send them");
             }
         });
     }
@@ -296,17 +296,17 @@ public final class MainActivity extends Activity {
         }
         runOnUiThread(() -> {
             if (prompt != null && !prompt.isEmpty()) appendTerminalText(prompt);
-            status.setText("CLI đang chờ bạn nhập dữ liệu trong ô bên dưới");
+            status.setText("The CLI is waiting for your input below.");
             commandField.setEnabled(true);
             sendButton.setEnabled(true);
-            commandField.setHint("Nhập rồi bấm Gửi");
+            commandField.setHint("Type a response, then tap Send");
             commandField.requestFocus();
         });
 
         String result = "";
         try {
             if (!latch.await(5, TimeUnit.MINUTES)) {
-                throw new IllegalStateException("Hết thời gian chờ dữ liệu nhập trong terminal.");
+                throw new IllegalStateException("Timed out while waiting for terminal input.");
             }
             synchronized (inputLock) {
                 result = inputValue == null ? "" : inputValue;
@@ -314,14 +314,14 @@ public final class MainActivity extends Activity {
             return result;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Lệnh bị gián đoạn khi chờ dữ liệu nhập.", e);
+            throw new IllegalStateException("Command interrupted while waiting for input.", e);
         } finally {
             synchronized (inputLock) {
                 waitingForInput = false;
                 inputLatch = null;
                 inputValue = null;
             }
-            setBusyUi(commandRunning, commandRunning ? "Đang chạy Colab CLI…" : "Sẵn sàng");
+            setBusyUi(commandRunning, commandRunning ? "Running Colab CLI…" : "Ready");
         }
     }
 
@@ -332,13 +332,13 @@ public final class MainActivity extends Activity {
             boolean canType = !busy || waitingForInput;
             commandField.setEnabled(canType);
             sendButton.setEnabled(canType);
-            commandField.setHint(waitingForInput ? "Nhập rồi bấm Gửi" : "colab <lệnh>");
+            commandField.setHint(waitingForInput ? "Type a response, then tap Send" : "colab <command>");
         });
     }
 
     private void openFilePicker() {
         if (commandRunning) {
-            appendTerminalText("\n[ColabTerm] Chờ lệnh hiện tại hoàn tất trước khi chọn tệp.\n");
+            appendTerminalText("\n[ColabTerm] Wait for the current command to finish before selecting a file.\n");
             return;
         }
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -358,11 +358,11 @@ public final class MainActivity extends Activity {
             String safeName = displayName.replaceAll("[^A-Za-z0-9._-]", "_");
             if (safeName.isEmpty()) safeName = "upload.bin";
             File uploadDir = new File(getFilesDir(), "uploads");
-            if (!uploadDir.exists() && !uploadDir.mkdirs()) throw new IllegalStateException("Không thể tạo thư mục uploads.");
+            if (!uploadDir.exists() && !uploadDir.mkdirs()) throw new IllegalStateException("Unable to create the uploads directory.");
             File target = new File(uploadDir, safeName);
             try (InputStream input = getContentResolver().openInputStream(uri);
                  FileOutputStream output = new FileOutputStream(target)) {
-                if (input == null) throw new IllegalStateException("Không mở được tệp đã chọn.");
+                if (input == null) throw new IllegalStateException("Unable to open the selected file.");
                 byte[] buffer = new byte[16384];
                 int count;
                 while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
@@ -372,9 +372,9 @@ public final class MainActivity extends Activity {
             String suggestion = "colab upload \"" + quoted + "\" /content/" + remoteName;
             commandField.setText(suggestion);
             commandField.setSelection(commandField.length());
-            appendTerminalText("\n[ColabTerm] Đã sao chép tệp vào vùng riêng của app: " + target.getAbsolutePath() + "\n");
+            appendTerminalText("\n[ColabTerm] Copied the file to the app’s private area: " + target.getAbsolutePath() + "\n");
         } catch (Exception e) {
-            appendTerminalText("\n[ColabTerm] Không thể nhập tệp: " + e.getMessage() + "\n");
+            appendTerminalText("\n[ColabTerm] Unable to load the file: " + e.getMessage() + "\n");
         }
     }
 

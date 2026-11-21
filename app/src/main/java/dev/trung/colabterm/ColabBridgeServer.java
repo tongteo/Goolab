@@ -143,7 +143,7 @@ public final class ColabBridgeServer implements AutoCloseable {
 
         String normalized = MainActivity.normalizeColabArguments(arguments);
         if (normalized == null) {
-            sendOutput(output, "[ColabTerm] Không nhận được kết quả từ parser Rust.\n");
+            sendOutput(output, "[ColabTerm] No result was returned by the Rust parser.\n");
             sendExit(output, 2);
             return;
         }
@@ -241,7 +241,7 @@ public final class ColabBridgeServer implements AutoCloseable {
                 try {
                     sendOutput(output, value);
                 } catch (IOException error) {
-                    throw new IllegalStateException("Không gửi được output Colab qua terminal.", error);
+                    throw new IllegalStateException("Could not send Colab output to the terminal.", error);
                 }
             }
         }
@@ -252,7 +252,7 @@ public final class ColabBridgeServer implements AutoCloseable {
                 try {
                     sendOutputBytes(output, value);
                 } catch (IOException error) {
-                    throw new IllegalStateException("Không gửi được output Colab qua terminal.", error);
+                    throw new IllegalStateException("Could not send Colab output to the terminal.", error);
                 }
             }
         }
@@ -277,7 +277,7 @@ public final class ColabBridgeServer implements AutoCloseable {
                 }
                 return new String(line.toByteArray(), StandardCharsets.UTF_8);
             } catch (IOException error) {
-                throw new IllegalStateException("Không đọc được dữ liệu nhập từ terminal.", error);
+                throw new IllegalStateException("Could not read input from the terminal.", error);
             }
         }
 
@@ -297,7 +297,7 @@ public final class ColabBridgeServer implements AutoCloseable {
                 }
                 return bytes.toByteArray();
             } catch (IOException error) {
-                throw new IllegalStateException("Không đọc được dữ liệu nhập từ terminal.", error);
+                throw new IllegalStateException("Could not read input from the terminal.", error);
             }
         }
 
@@ -326,7 +326,7 @@ public final class ColabBridgeServer implements AutoCloseable {
                         throw new IOException("Unknown terminal input frame");
                 }
             } catch (IOException error) {
-                throw new IllegalStateException("Không đọc được sự kiện terminal.", error);
+                throw new IllegalStateException("Could not read the terminal event.", error);
             }
         }
 

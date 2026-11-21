@@ -1,25 +1,25 @@
-# Kế hoạch: Termux shell có Colab CLI trực tiếp
+# Plan: Termux Shell with Direct Colab CLI
 
-## Phạm vi
+## Scope
 
-Màn hình launcher dùng Termux `TerminalView` và PTY Android shell; gõ `colab ...` ngay tại prompt sẽ gọi Python/Colab CLI nhúng. CLI riêng hiện tại giữ làm lối phụ. Không thêm rootfs, root hoặc quyền Android.
+The launcher screen uses Termux `TerminalView` and an Android PTY shell; typing `colab ...` at the prompt invokes the embedded Python/Colab CLI. Keep the existing standalone CLI as a secondary path. Do not add a rootfs, root, or Android permissions.
 
-## Các bước triển khai
+## Implementation steps
 
-1. Viết test trước cho shell environment và wire protocol của helper; xác nhận test đỏ do phần triển khai còn thiếu.
-2. Thêm Rust `colab` client binary (ARM64 Android) dùng token, port loopback ngẫu nhiên, argv framing, stdin/stdout relay và exit code; test framing trên host. Cấu hình Gradle chép binary vào assets APK.
-3. Tạo `ColabBridgeServer` Java: loopback-only, token 256-bit, giới hạn request, xác thực, gọi parser JNI hiện có, rồi gọi Chaquopy runner tuần tự; relay output/prompt/line input và exit code qua protocol.
-4. Mở rộng Python runner để nhận `colab` normalized args từ helper, giữ nguyên entrypoint cũ của màn hình CLI.
-5. Hoàn thiện Activity shell dùng Termux TerminalView, cài helper vào `files/bin`, khởi chạy server trước PTY, đưa path/port/token qua environment con, dọn server/session khi Activity kết thúc; thêm nút vào màn hình CLI cũ.
-6. Cập nhật launcher manifest, notices/license và README; không xin thêm permission.
-7. Chạy Java unit test, Rust format/test và Gradle test/assemble. Kiểm tra APK có `TerminalView`, `libtermux.so`, Rust JNI, executable bridge; kiểm tra manifest/permission và rà soát tệp đã đổi.
-8. Nếu không có thiết bị ADB, báo giới hạn rõ: chưa chứng minh PTY, file execute và Colab bridge chạy trên máy thật.
+1. Write tests first for the shell environment and helper wire protocol; confirm they fail because the implementation is missing.
+2. Add a Rust `colab` client binary (Android ARM64) using a token, random loopback port, argv framing, stdin/stdout relay, and exit code; test framing on the host. Configure Gradle to copy the binary into APK assets.
+3. Create `ColabBridgeServer` in Java: loopback-only, 256-bit token, request limits, authentication, existing JNI parser, then sequential Chaquopy runner calls; relay output/prompt/line input and exit code through the protocol.
+4. Extend the Python runner to accept normalized `colab` args from the helper while preserving the existing entry point for the CLI screen.
+5. Complete the shell Activity using Termux TerminalView, install the helper in `files/bin`, start the server before the PTY, pass path/port/token through the child environment, clean up the server/session when the Activity ends, and add a button to the legacy CLI screen.
+6. Update the launcher manifest, notices/license, and README; request no additional permissions.
+7. Run Java unit tests, Rust formatting/tests, and Gradle test/assemble. Check that the APK contains `TerminalView`, `libtermux.so`, Rust JNI, and the executable bridge; verify the manifest/permissions and review changed files.
+8. If no ADB device is available, report the limitation clearly: PTY, executable-file behavior, and the Colab bridge have not been proven on a real device.
 
-## Kiểm thử
+## Tests
 
 ```bash
 PATH="/home/ubuntu/.local/share/uv/python/cpython-3.13.15-linux-x86_64-gnu/bin:$PATH" ./gradlew :app:testDebugUnitTest :app:assembleDebug
 cd native && cargo fmt -- --check && cargo test
 ```
 
-Kiểm tra APK bằng `unzip -l app/build/outputs/apk/debug/app-debug.apk`; xác nhận không có quyền mới trong manifest đã merge. Không gọi Google/OAuth hay tạo phiên Colab khi test/build.
+Inspect the APK with `unzip -l app/build/outputs/apk/debug/app-debug.apk`; confirm there are no new permissions in the merged manifest. Do not call Google/OAuth or create a Colab session during testing.

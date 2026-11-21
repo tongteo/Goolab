@@ -1,43 +1,43 @@
-# Thiết kế: Termux terminal với Colab CLI trong shell
+# Design: Termux Terminal with Colab CLI in the Shell
 
-## Mục tiêu
+## Goal
 
-Dùng terminal UI/PTY upstream của Termux làm màn hình chính, đồng thời cho phép gõ `colab ...` ngay tại prompt shell và thực thi Google Colab CLI Python đã nhúng bằng Chaquopy. Màn hình Colab CLI hiện tại có thể giữ làm lối phụ.
+Use the upstream Termux terminal UI/PTY as the primary screen while allowing `colab ...` to be entered directly at the shell prompt and execute the Google Colab CLI Python code embedded with Chaquopy. The existing Colab CLI screen may remain as a secondary path.
 
-## Kiến trúc đã chọn
+## Selected architecture
 
-App dùng `TerminalView` upstream và dependency `terminal-emulator` ghim tại Termux `v0.118.3`, lấy qua JitPack. Không tích hợp app Termux hoặc module `termux-shared`: repository Termux app là GPLv3, còn hai thư viện terminal có ngoại lệ Apache-2.0. Giữ attribution và license upstream trong notices.
+The app uses upstream `TerminalView` and its `terminal-emulator` dependency pinned to Termux `v0.118.3`, fetched through JitPack. It does not integrate the Termux app or the `termux-shared` module: the Termux app repository is GPLv3, while the two terminal libraries have an Apache-2.0 exception. Preserve upstream attribution and licenses in the notices.
 
-Shell là `/system/bin/sh -i` chạy qua PTY trong tiến trình con với UID/SELinux sandbox của app, không root. HOME và TMPDIR nằm trong data/cache riêng của app; PATH có thư mục `files/bin` của app rồi tới `/system/bin:/system/xbin`. Không cấp thêm quyền Android.
+The shell is `/system/bin/sh -i`, running through a PTY in a child process under the app's UID/SELinux sandbox, without root. HOME and TMPDIR are in the app's private data/cache area; PATH includes the app's `files/bin` directory, followed by `/system/bin:/system/xbin`. Do not grant additional Android permissions.
 
-Một helper native ARM64 tên `colab` được chép từ APK vào `files/bin`. Helper gửi argv và stdin qua TCP loopback tới bridge Java cục bộ; cổng ngẫu nhiên kèm token ngẫu nhiên 256-bit chỉ được truyền cho tiến trình shell. Bridge kiểm tra argv qua parser/allowlist Rust hiện hữu, rồi gọi `colab_runner` trong Chaquopy. Output, mã thoát và các prompt đầu vào được chuyển ngược qua PTY. Không chuyển command của người dùng sang `/system/bin/sh -c`.
+A native ARM64 helper named `colab` is copied from the APK to `files/bin`. It sends argv and stdin over TCP loopback to a local Java bridge; a random port and a random 256-bit token are passed only to the shell process. The bridge checks argv through the existing Rust parser/allowlist, then calls `colab_runner` in Chaquopy. Output, exit codes, and input prompts are relayed back through the PTY. Do not pass a user command to `/system/bin/sh -c`.
 
-Bridge chỉ chấp nhận kết nối loopback, xác thực token và giới hạn kích thước request; việc gọi Python được tuần tự hóa vì runner tạm thay `sys.stdout`/`builtins.input`. Token không được ghi log. `colab` chỉ chạy các subcommand trong allowlist hiện tại; shell hệ thống vẫn là shell cục bộ trong sandbox.
+The bridge accepts loopback connections only, authenticates the token, and limits request size; Python calls are serialized because the runner temporarily replaces `sys.stdout`/`builtins.input`. The token is not logged. `colab` only runs subcommands on the current allowlist; the system shell remains a local shell inside the sandbox.
 
-## Giới hạn
+## Limitations
 
-Đây không phải bộ môi trường Termux đầy đủ: không rootfs, `pkg`/`apt`, root, package repository hay daemon nền. Môi trường chỉ có lệnh Android hệ thống sẵn có, Python/Colab CLI nhúng và wrapper `colab`. Phiên có thể mất khi Activity/app bị kết thúc. Cần kiểm thử trên thiết bị thật để xác minh PTY và việc thực thi ELF trong data riêng; build APK không thay thế kiểm chứng đó.
+This is not a complete Termux environment: there is no rootfs, `pkg`/`apt`, root, package repository, or background daemon. The environment contains only the available Android system commands, embedded Python/Colab CLI, and the `colab` wrapper. The session may be lost when the Activity/app is terminated. A real device test is needed to verify the PTY and execution of the ELF from private app data; building the APK does not replace that verification.
 
-## Các tệp chính
+## Main files
 
-- `settings.gradle`, `app/build.gradle`: JitPack, thư viện terminal và stage helper native vào assets.
-- `native/src/bin/colab.rs`: client TCP/stdio có framing và mã thoát; `native/src/lib.rs`: allowlist hiện có vẫn là cổng kiểm soát lệnh.
-- `app/src/main/java/dev/trung/colabterm/TermuxShellActivity.java`: Termux TerminalView, PTY shell, path/install helper và lifecycle.
-- `app/src/main/java/dev/trung/colabterm/ColabBridgeServer.java`: loopback authenticated bridge, protocol validation, Chaquopy calls và prompt/input relay.
-- `app/src/main/java/dev/trung/colabterm/ShellConfig.java`, `app/src/test/java/dev/trung/colabterm/ShellConfigTest.java`: argv/environment shell.
-- `app/src/main/java/dev/trung/colabterm/MainActivity.java`, `app/src/main/python/colab_runner.py`: reuse parser and support both existing screen and bridge argv.
-- `AndroidManifest.xml`, `README.md`, `THIRD_PARTY_NOTICES.md`: launcher, giới hạn, nguồn/license.
+- `settings.gradle`, `app/build.gradle`: JitPack, terminal libraries, and staging the native helper into assets.
+- `native/src/bin/colab.rs`: TCP/stdio client with framing and exit code; `native/src/lib.rs`: the existing allowlist remains the command control gate.
+- `app/src/main/java/dev/trung/colabterm/TermuxShellActivity.java`: Termux TerminalView, PTY shell, helper path/install, and lifecycle.
+- `app/src/main/java/dev/trung/colabterm/ColabBridgeServer.java`: authenticated loopback bridge, protocol validation, Chaquopy calls, and prompt/input relay.
+- `app/src/main/java/dev/trung/colabterm/ShellConfig.java`, `app/src/test/java/dev/trung/colabterm/ShellConfigTest.java`: shell argv/environment.
+- `app/src/main/java/dev/trung/colabterm/MainActivity.java`, `app/src/main/python/colab_runner.py`: reuse the parser and support both the existing screen and bridge argv.
+- `AndroidManifest.xml`, `README.md`, `THIRD_PARTY_NOTICES.md`: launcher, limitations, sources/licenses.
 
-## Nghiệm thu
+## Acceptance
 
-1. Unit tests xác nhận shell env/path và Rust protocol framing/argv.
-2. Rust formatter/test suite qua.
-3. Gradle unit test và ARM64 debug APK build qua.
-4. APK có `TerminalView`, native PTY `libtermux.so`, Rust JNI và executable `colab`.
-5. Manifest không thêm quyền Android. Bridge chỉ bind loopback, token không log; parser Rust từ chối lệnh ngoài allowlist.
-6. Không tuyên bố runtime Android hoạt động nếu chưa cài/chạy thử trên thiết bị.
+1. Unit tests confirm shell environment/path and Rust protocol framing/argv.
+2. Rust formatter/test suite passes.
+3. Gradle unit tests and ARM64 debug APK build pass.
+4. The APK contains `TerminalView`, native PTY `libtermux.so`, Rust JNI, and executable `colab`.
+5. The manifest adds no Android permissions. The bridge binds only to loopback, does not log the token, and the Rust parser rejects commands outside the allowlist.
+6. Do not claim Android runtime functionality without installing and testing it on a device.
 
-## Nguồn upstream
+## Upstream sources
 
 - https://github.com/termux/termux-app
 - https://raw.githubusercontent.com/termux/termux-app/v0.118.3/LICENSE.md

@@ -200,10 +200,10 @@ final class AppDiagnostics {
         synchronized (FILE_LOCK) {
             try {
                 File file = getReportFile(context);
-                if (!file.isFile()) return "Không có báo cáo crash đã lưu.";
+                if (!file.isFile()) return "No saved crash report.";
                 return readFile(file);
             } catch (Throwable error) {
-                return "Không đọc được báo cáo crash: " + error.getClass().getSimpleName();
+                return "Could not read the crash report: " + error.getClass().getSimpleName();
             }
         }
     }

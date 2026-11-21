@@ -1,27 +1,27 @@
-# Kế hoạch: Colab console/SSH tương tác
+# Plan: Interactive Colab Console/SSH
 
-## Ràng buộc
+## Constraints
 
-Chỉ build/test cục bộ. Không chạy `colab console`, `colab ssh`, `colab new`, `colab stop` hay lệnh nào lên runtime thật. Giữ nguyên phiên `t4-lab`. Không sửa luồng cỡ chữ/Tab nếu không có bằng chứng độc lập.
+Local build/test only. Do not run `colab console`, `colab ssh`, `colab new`, `colab stop`, or any command against a real runtime. Preserve the `t4-lab` session. Do not change the font-size/Tab behavior without independent evidence.
 
-## Bước triển khai
+## Implementation steps
 
-1. **Kiểm thử giao thức trước (Rust):** mở rộng parser cho console/ssh; thêm loại lệnh tương tác; viết test framing CTC2 (kích thước terminal, frame input, resize, EOF) và test terminal raw-mode/restore theo hướng không cần PTY thật. Chạy test để xác nhận đỏ trước khi triển khai.
-2. **Helper Rust:** phiên bản hóa header; lấy `TIOCGWINSZ`; đặt raw mode chỉ cho console/ssh; poll stdin + kích thước terminal, phát frame input/resize/EOF tuần tự qua socket; khôi phục termios khi mọi nhánh kết thúc. Chạy cargo fmt/test và review protocol limits.
-3. **Bridge Java:** parse CTC2 và giới hạn frame; `PythonBridgeIO` cung cấp đọc byte/text-line, thông báo resize/kích thước, ghi text/raw bytes; test pure logic có thể tách khỏi Android Context. Giữ authentication loopback/token và tuần tự hóa Python như hiện tại.
-4. **Runner Python/console:** bổ sung binary writer, incremental UTF-8 text reader, EOF và resize hook; sửa console để nhận terminal-size provider/resize callback tùy chọn mà vẫn giữ hành vi desktop mặc định. Viết unittest stream/mocks.
-5. **SSH Android:** thêm Paramiko version pin và xác nhận toàn bộ wheel Android/Python 3.13 ARM64; implement socket adapter cho WebSocket, key resolve/generate, TTY request/shell/resize và relay byte qua runner. Android path bắt buộc dùng phiên đã lưu và chặn `--rm`; Desktop path giữ OpenSSH. Test adapter và key selection bằng mocks, không mở WebSocket thật.
-6. **Tích hợp/đóng gói:** cập nhật Gradle dependency, `THIRD_PARTY_NOTICES.md`, APK assets, README/spec; chạy Python unittest, `cargo fmt --check`, `cargo test`, `./gradlew :app:testDebugUnitTest :app:assembleDebug`; kiểm tra APK chứa helper, Paramiko/cryptography ARM64 và license.
-7. **Review cuối:** kiểm tra diff thủ công (workspace hiện không có `.git`), protocol backward/version consistency, không log token/private key, EOF/resize, lỗi thiếu wheel; báo rõ test nào bị chặn. Xác nhận không có request/command remote nào được gửi trong quá trình làm.
+1. **Test the protocol first (Rust):** extend the parser for console/ssh; add an interactive-command type; write CTC2 framing tests (terminal dimensions, input frames, resize, EOF) and terminal raw-mode/restore tests that do not require a real PTY. Run the tests to confirm they fail before implementation.
+2. **Rust helper:** version the header; read `TIOCGWINSZ`; set raw mode only for console/ssh; poll stdin and terminal dimensions, and send input/resize/EOF frames sequentially over the socket; restore termios on every exit path. Run cargo fmt/test and review protocol limits.
+3. **Java bridge:** parse CTC2 and limit frame sizes; `PythonBridgeIO` provides byte/text-line reads, resize/dimension notifications, and text/raw-byte writes; pure-logic tests should be separable from Android Context. Preserve loopback/token authentication and serialize Python calls as currently implemented.
+4. **Python runner/console:** add a binary writer, incremental UTF-8 text reader, EOF, and resize hook; update console to accept optional terminal-size providers/resize callbacks while preserving default desktop behavior. Write unittest stream/mocks.
+5. **Android SSH:** add a pinned Paramiko version and confirm all Android/Python 3.13 ARM64 wheels; implement a WebSocket socket adapter, key resolution/generation, TTY request/shell/resize, and byte relay through the runner. The Android path must use a saved session and reject `--rm`; keep OpenSSH for the desktop path. Test the adapter and key selection with mocks; do not open a real WebSocket.
+6. **Integrate/package:** update the Gradle dependency, `THIRD_PARTY_NOTICES.md`, APK assets, README/spec; run Python unittest, `cargo fmt --check`, `cargo test`, `./gradlew :app:testDebugUnitTest :app:assembleDebug`; verify the APK contains the helper, Paramiko/cryptography ARM64, and licenses.
+7. **Final review:** inspect the diff manually (the workspace currently has no `.git`), protocol backward/version consistency, token/private-key logging, EOF/resize, and missing-wheel failures; report any blocked tests. Confirm no remote requests/commands were sent during the work.
 
-## Tiến độ đã kiểm chứng
+## Verified progress
 
-- Đã hoàn tất CTC2 byte-stream/resize/EOF, raw terminal restoration, Java bridge, console UTF-8 stream, Paramiko WebSocket socket adapter và Android SSH chỉ dùng phiên đã lưu; `--proxy-mode`/`--rm` bị từ chối. Sửa thêm stdin reader để không mất phần sau dòng đầu và phân biệt blank line với EOF.
-- Kiểm tra xanh: `cargo fmt --check && cargo test` (11 thư viện + 6 helper); Python mock suite (8 test) và `py_compile`; `./gradlew :app:testDebugUnitTest`; `./gradlew :app:assembleDebug`.
-- APK `app/build/outputs/apk/debug/app-debug.apk` được build thành công (22 MB). Kiểm tra ZIP thấy `libcolab_cli.so` là PIE executable AArch64, `libcolab_termux_core.so` là shared object AArch64; `requirements-common.imy` chứa Paramiko 5.1.0 cùng cryptography/bcrypt/PyNaCl/cffi; các license asset được đóng gói.
-- Không có thiết bị Android kết nối và không mở kết nối/lệnh lên Colab. Phiên `t4-lab` không bị đụng tới; console/SSH trên thiết bị/runtime thật vẫn chưa được xác thực.
-- Điều tra 9sp chỉ ở mã cục bộ: nút TAB luôn gửi `\t`; Termux `TerminalView.setTextSize` lập tức gọi `updateSize()` và tính lại lưới hàng/cột rồi cập nhật PTY. Không thấy nhánh đặc biệt ở 9sp, nên chưa sửa phỏng đoán; cần `stty size` tại 8sp/9sp trước-sau TAB và thử shell mới để xác định wrap/resize so với lỗi nhập.
+- Completed CTC2 byte-stream/resize/EOF, raw terminal restoration, Java bridge, console UTF-8 stream, Paramiko WebSocket socket adapter, and Android SSH using only saved sessions; `--proxy-mode`/`--rm` are rejected. Also fixed the stdin reader so it does not lose input after the first line and distinguishes a blank line from EOF.
+- Passing checks: `cargo fmt --check && cargo test` (11 library + 6 helper tests); Python mock suite (8 tests) and `py_compile`; `./gradlew :app:testDebugUnitTest`; `./gradlew :app:assembleDebug`.
+- APK `app/build/outputs/apk/debug/app-debug.apk` built successfully (22 MB). ZIP inspection showed `libcolab_cli.so` is an AArch64 PIE executable and `libcolab_termux_core.so` is an AArch64 shared object; `requirements-common.imy` contains Paramiko 5.1.0 and cryptography/bcrypt/PyNaCl/cffi; license assets are bundled.
+- No Android device is connected, and no connection/command was sent to Colab. The `t4-lab` session was untouched; console/SSH on a real device/runtime remains unverified.
+- The 9sp investigation was limited to local code: the TAB button always sends `\t`; Termux `TerminalView.setTextSize` immediately calls `updateSize()`, recalculating the rows/columns and updating the PTY. No special 9sp branch was found, so no speculative fix was made; use `stty size` before/after TAB at 8sp/9sp and try a new shell to distinguish wrapping/resize from an input issue.
 
-## Điều kiện dừng/điều chỉnh
+## Stop/adjustment conditions
 
-Nếu Chaquopy không có wheel tương thích cho cryptography/bcrypt/pynacl hoặc Paramiko gây lỗi alignment/build, không thay bằng executable không kiểm chứng hoặc giả lập SSH qua console. Hoàn thiện console nếu độc lập, giữ `ssh` báo lỗi có lý do và nêu dependency/rủi ro còn thiếu trước khi mở rộng tiếp.
+If Chaquopy has no compatible wheel for cryptography/bcrypt/pynacl or Paramiko causes alignment/build errors, do not replace it with an unverified executable or simulate SSH through console. Complete console if independent, keep `ssh` reporting a clear reason, and state the missing dependency/risk before expanding further.

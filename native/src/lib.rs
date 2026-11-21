@@ -18,15 +18,20 @@ pub enum CommandError {
 impl fmt::Display for CommandError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Empty => write!(f, "Nhập lệnh colab để tiếp tục."),
-            Self::NotColab => write!(f, "Chỉ hỗ trợ lệnh bắt đầu bằng `colab`."),
-            Self::ShellSyntax => write!(f, "Không hỗ trợ nối lệnh hoặc pipe trong terminal MVP."),
-            Self::MissingOptionValue(option) => write!(f, "Thiếu giá trị cho tùy chọn {option}."),
-            Self::UnsupportedCommand(command) => write!(f, "Chưa hỗ trợ lệnh `colab {command}`."),
+            Self::Empty => write!(f, "Enter a colab command to continue."),
+            Self::NotColab => write!(f, "Only commands beginning with `colab` are supported."),
+            Self::ShellSyntax => write!(
+                f,
+                "Chained commands and pipes are not supported in this terminal MVP."
+            ),
+            Self::MissingOptionValue(option) => write!(f, "Missing value for option {option}."),
+            Self::UnsupportedCommand(command) => {
+                write!(f, "Command `colab {command}` is not supported yet.")
+            }
             Self::InteractiveUnsupported(command) => {
                 write!(
                     f,
-                    "`colab {command}` cần PTY/SSH tương tác và chưa được hỗ trợ trong MVP."
+                    "`colab {command}` requires an interactive PTY/SSH and is not supported in the MVP."
                 )
             }
         }

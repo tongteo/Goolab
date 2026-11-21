@@ -126,8 +126,8 @@ def _scope_remediation_message(provider) -> str:
     if os.environ.get("COLABTERM_ANDROID") == "1":
         return (
             f"{common}\n"
-            "OAuth token nằm trong Android Keystore. Để đăng nhập lại, dừng các phiên Colab trước bằng `colab stop -s <tên>`, "
-            "sau đó xóa dữ liệu ColabTerm trong Android Settings."
+            "The OAuth token is stored in Android Keystore. To sign in again, first stop each active Colab session with `colab stop -s <name>`, "
+            "then clear ColabTerm app data in Android Settings."
         )
     # OAuth2 (and any future provider) fallback.
     return (
@@ -510,7 +510,7 @@ def spawn_keep_alive(
     """
     if os.environ.get("COLABTERM_ANDROID") == "1":
         typer.echo(
-            "[colab] Keep-alive nền bị tắt trong Android MVP; phiên có thể hết hạn khi app bị hệ thống tạm dừng.",
+            "[colab] Background keep-alive is disabled in the Android MVP; the session may expire when the system suspends the app.",
             err=True,
         )
         return None
